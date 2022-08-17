@@ -23,15 +23,15 @@ version: 2.1.1
 # It is recommended to use it with quotes.
 appVersion: "1.2.0"
 
-dependencies:
-  - name: opensearch
-    version: 2.*.*
-    repository: https://opensearch-project.github.io/helm-charts/
-    alias: opensearch
-    condition: opensearch.enabled
-  - name: postgresql
-    version:  11.*.*
-    repository: https://charts.bitnami.com/bitnami
-    alias: postgres
-    condition: postgres.enabled
+# dependencies:
+#   - name: opensearch
+#     version: 2.*.*
+#     repository: https://opensearch-project.github.io/helm-charts/
+#     alias: opensearch
+#     condition: opensearch.enabled
+#   - name: postgresql
+#     version:  11.*.*
+#     repository: https://charts.bitnami.com/bitnami
+#     alias: postgres
+#     condition: postgres.enabled
 
