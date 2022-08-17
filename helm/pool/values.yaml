@@ -5,11 +5,11 @@
 replicaCount: 1
 
 image:
-  registry: ghcr.io
-  repository: catenax-ng/product-bpdm/pool
+  registry: ftcpro.azurecr.io
+  repository: bpdm/pool
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "main"
+  tag: "latest"
 
 imagePullSecrets: [ ]
 
@@ -42,7 +42,7 @@ ingress:
   createRootPath: false
   subPath: /v2
   hosts:
-    - partners-pool.dev.demo.catena-x.net
+    - partners-pool.dev.demo.ftcpro.co
 
 # Following Catena-X Helm Best Practices @url: https://catenax-ng.github.io/docs/kubernetes-basics/helm
 # @url: https://cloud.google.com/blog/products/containers-kubernetes/kubernetes-best-practices-resource-requests-and-limits

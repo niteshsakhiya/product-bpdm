@@ -8,11 +8,11 @@ fullnameOverride:
 replicaCount: 1
 
 image:
-  registry: ghcr.io
-  repository: catenax-ng/product-bpdm/gate
+  registry: ftcpro.azurecr.io
+  repository: bpdm/gate
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "main"
+  tag: "latest"
 
 imagePullSecrets: [ ]
 
@@ -45,7 +45,7 @@ ingress:
   createRootPath: false
   subPath: /v2
   hosts:
-    - partners-gate.dev.demo.catena-x.net
+    - partners-gate.dev.demo.ftcpro.co
 
 # Following Catena-X Helm Best Practices @url: https://catenax-ng.github.io/docs/kubernetes-basics/helm
 # @url: https://cloud.google.com/blog/products/containers-kubernetes/kubernetes-best-practices-resource-requests-and-limits
@@ -54,8 +54,8 @@ resources:
     cpu: 800m
     memory: 2Gi
   requests:
-    cpu: 300m
-    memory: 1Gi
+    cpu: 100m
+    memory: 500Mi
 
 nodeSelector: { }
 
@@ -90,7 +90,7 @@ readinessProbe:
   timeoutSeconds: 1
 
 applicationSecret:
-  enabled: true
+  enabled: false
   cdq: <path:bpdm/data/dev/gate/cdq#api-key>
 
 applicationConfig: # |
