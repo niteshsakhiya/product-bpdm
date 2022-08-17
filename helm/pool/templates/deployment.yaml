@@ -40,9 +40,9 @@ spec:
             - name: SPRING_CONFIG_IMPORT
               value: /etc/conf/external.properties
             - name: BPDM_DB_HOST
-              value: {{ include "includeWithPostgresContext" (list $ "postgresql.primary.fullname") }}
+              value: {{ .Values.postgres.auth.host }}
             - name: BPDM_OPENSEARCH_HOST
-              value: {{ include "includeWithOpensearchContext" (list $ "opensearch.masterService") }}
+              value: {{ .Values.opensearch.host }}
             - name: BPDM_KEYCLOAK_SECRET
               valueFrom:
                 secretKeyRef:
@@ -58,8 +58,8 @@ spec:
             - name: BPDM_DB_PASS
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "includeWithPostgresContext" (list $ "postgresql.secretName") }}
-                  key: password
+                  name: {{ include "bpdm.applicationSecret.name" . }}
+                  key: postgres-password
           ports:
             - name: http
               containerPort: 8080
