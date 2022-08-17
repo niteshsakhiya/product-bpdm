@@ -90,7 +90,7 @@ readinessProbe:
   timeoutSeconds: 1
 
 applicationSecret:
-  enabled: true
+  enabled: false
   cdq: <path:bpdm/data/dev/gate/cdq#api-key>
 
 applicationConfig: # |
