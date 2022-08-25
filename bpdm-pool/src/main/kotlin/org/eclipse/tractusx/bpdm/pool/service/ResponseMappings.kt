@@ -52,7 +52,8 @@ fun BusinessPartner.toDto(): BusinessPartnerResponse {
         bankAccounts.map { it.toDto() },
         roles.map { it.toDto() },
         startNodeRelations.map { it.toDto() }.plus(endNodeRelations.map { it.toDto() }),
-        currentness
+        currentness,
+        addresses.map { it.toDto() }
     )
 }
 

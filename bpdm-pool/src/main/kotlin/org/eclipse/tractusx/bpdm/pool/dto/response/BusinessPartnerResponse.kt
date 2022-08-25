@@ -51,5 +51,7 @@ data class BusinessPartnerResponse (
     @ArraySchema(arraySchema = Schema(description = "Relations to other business partners"))
     val relations: Collection<RelationResponse> = emptyList(),
     @Schema(description = "The timestamp the business partner data was last indicated to be still current")
-    val currentness: Instant
+    val currentness: Instant,
+    @Schema(description = "Address")
+    val addresses: Collection<AddressBpnResponse> = emptyList()
 )
