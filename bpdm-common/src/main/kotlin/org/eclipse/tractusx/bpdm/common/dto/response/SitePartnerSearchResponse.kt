@@ -17,18 +17,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ******************************************************************************/
 
-package org.eclipse.tractusx.bpdm.pool.dto.request
+package org.eclipse.tractusx.bpdm.common.dto.response
 
-import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Schema
-import org.eclipse.tractusx.bpdm.common.dto.AddressDto
 
-@Schema(name = "Site Request", description = "New site record")
-data class SiteRequest(
-    @Schema(description = "Business Partner Number")
-    val bpn: String?,
-    @Schema(description = "Site name")
-    val name: String,
-    @ArraySchema(arraySchema = Schema(description = "Addresses the site is located at", required = false))
-    val addresses: Collection<AddressDto> = emptyList()
+@Schema(name = "Site Partner Search Response", description = "Business partner of type site with parent BPN")
+data class SitePartnerSearchResponse(
+    @Schema(description = "Site properties")
+    val site: SitePartnerResponse,
+    @Schema(description = "Business Partner Number of the related legal entity")
+    val bpnLegalEntity: String,
 )

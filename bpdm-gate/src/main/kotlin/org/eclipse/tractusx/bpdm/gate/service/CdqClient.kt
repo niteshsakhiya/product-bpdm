@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import org.eclipse.tractusx.bpdm.common.dto.cdq.*
 import org.eclipse.tractusx.bpdm.gate.config.CdqConfigProperties
 import org.eclipse.tractusx.bpdm.gate.exception.CdqRequestException
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
@@ -32,24 +33,32 @@ private const val BUSINESS_PARTNER_PATH = "/businesspartners"
 private const val FETCH_BUSINESS_PARTNER_PATH = "$BUSINESS_PARTNER_PATH/fetch"
 
 private const val RELATIONS_PATH = "/relations"
+private const val DELETE_RELATIONS_PATH = "$RELATIONS_PATH/delete"
 
 private const val RELATION_TYPE_KEY = "PARENT"
 
 @Service
 class CdqClient(
+    @Qualifier("cdqClient")
     private val webClient: WebClient,
     private val cdqConfigProperties: CdqConfigProperties,
     private val objectMapper: ObjectMapper
 ) {
 
-    fun getAugmentedLegalEntities(limit: Int? = null, startAfter: String? = null, from: Instant? = null, externalIds: List<String>? = null) =
+    fun getAugmentedLegalEntities(limit: Int? = null, startAfter: String? = null, from: Instant? = null, externalIds: Collection<String>? = null) =
         getAugmentedBusinessPartners(limit, startAfter, from, externalIds, cdqConfigProperties.datasourceLegalEntity)
+
+    fun getAugmentedSites(limit: Int? = null, startAfter: String? = null, from: Instant? = null, externalIds: Collection<String>? = null) =
+        getAugmentedBusinessPartners(limit, startAfter, from, externalIds, cdqConfigProperties.datasourceSite)
+
+    fun getAugmentedAddresses(limit: Int? = null, startAfter: String? = null, from: Instant? = null, externalIds: Collection<String>? = null) =
+        getAugmentedBusinessPartners(limit, startAfter, from, externalIds, cdqConfigProperties.datasourceAddress)
 
     private fun getAugmentedBusinessPartners(
         limit: Int?,
         startAfter: String?,
         from: Instant?,
-        externalIds: List<String>?,
+        externalIds: Collection<String>?,
         datasource: String
     ): PagedResponseCdq<AugmentedBusinessPartnerResponseCdq> {
         val partnerCollection = try {
@@ -62,7 +71,7 @@ class CdqClient(
                     if (limit != null) builder.queryParam("limit", limit)
                     if (startAfter != null) builder.queryParam("startAfter", startAfter)
                     if (from != null) builder.queryParam("from", from)
-                    if (externalIds != null) builder.queryParam(externalIds.joinToString(","))
+                    if (externalIds != null) builder.queryParam("externalIds", externalIds.joinToString(","))
                     builder.build()
                 }
                 .retrieve()
@@ -89,6 +98,20 @@ class CdqClient(
             throw CdqRequestException("Read augmented business partner request failed.", e)
         }
         return response
+    }
+
+    fun deleteRelations(relations: Collection<DeleteRelationsRequestCdq.RelationToDeleteCdq>) {
+        try {
+            webClient
+                .post()
+                .uri(cdqConfigProperties.dataExchangeApiUrl + DELETE_RELATIONS_PATH)
+                .bodyValue(objectMapper.writeValueAsString(DeleteRelationsRequestCdq(relations)))
+                .retrieve()
+                .bodyToMono<DeleteRelationsResponseCdq>()
+                .block()!!
+        } catch (e: Exception) {
+            throw CdqRequestException("Delete relations request failed.", e)
+        }
     }
 
     fun upsertLegalEntities(legalEntities: List<BusinessPartnerCdq>) {
@@ -142,16 +165,20 @@ class CdqClient(
     }
 
     fun getLegalEntities(limit: Int? = null, startAfter: String? = null, externalIds: List<String>? = null) =
-        getBusinessPartners(limit, startAfter, externalIds, cdqConfigProperties.datasourceLegalEntity)
+        getBusinessPartners(limit, startAfter, externalIds, cdqConfigProperties.datasourceLegalEntity, listOf("USE_NEXT_START_AFTER"))
 
     fun getSites(limit: Int? = null, startAfter: String? = null, externalIds: List<String>? = null) =
-        getBusinessPartners(limit, startAfter, externalIds, cdqConfigProperties.datasourceSite)
+        getBusinessPartners(limit, startAfter, externalIds, cdqConfigProperties.datasourceSite, listOf("USE_NEXT_START_AFTER", "FETCH_RELATIONS"))
+
+    fun getAddresses(limit: Int? = null, startAfter: String? = null, externalIds: List<String>? = null) =
+        getBusinessPartners(limit, startAfter, externalIds, cdqConfigProperties.datasourceAddress, listOf("USE_NEXT_START_AFTER", "FETCH_RELATIONS"))
 
     private fun getBusinessPartners(
         limit: Int?,
         startAfter: String?,
         externalIds: List<String>?,
-        datasource: String
+        datasource: String,
+        featuresOn: List<String>?
     ): PagedResponseCdq<BusinessPartnerCdq> {
         val partnerCollection = try {
             webClient
@@ -160,10 +187,10 @@ class CdqClient(
                     builder
                         .path(cdqConfigProperties.dataExchangeApiUrl + BUSINESS_PARTNER_PATH)
                         .queryParam("dataSource", datasource)
-                        .queryParam("featuresOn", "USE_NEXT_START_AFTER")
                     if (startAfter != null) builder.queryParam("startAfter", startAfter)
                     if (limit != null) builder.queryParam("limit", limit)
-                    if (externalIds != null) builder.queryParam("externalId", externalIds.joinToString(","))
+                    if (!featuresOn.isNullOrEmpty()) builder.queryParam("featuresOn", featuresOn.joinToString(","))
+                    if (!externalIds.isNullOrEmpty()) builder.queryParam("externalId", externalIds.joinToString(","))
                     builder.build()
                 }
                 .retrieve()

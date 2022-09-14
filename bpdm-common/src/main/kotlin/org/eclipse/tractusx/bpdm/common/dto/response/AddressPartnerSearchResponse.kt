@@ -17,11 +17,15 @@
  * SPDX-License-Identifier: Apache-2.0
  ******************************************************************************/
 
-package org.eclipse.tractusx.bpdm.pool.dto.request
+package org.eclipse.tractusx.bpdm.common.dto.response
 
 import io.swagger.v3.oas.annotations.media.Schema
 
-data class SiteSearchRequest(
-    @Schema(description = "Filter sites that should belong to legal entities (specified by BPNL)")
-    val legalEntities: Collection<String>
+@Schema(name = "Address Partner Search Response", description = "Business partner of type address with parent reference")
+data class AddressPartnerSearchResponse(
+    val address: AddressPartnerResponse,
+    @Schema(description = "Business Partner Number of the related legal entity")
+    val bpnLegalEntity: String? = null,
+    @Schema(description = "Business Partner Number of the related site")
+    val bpnSite: String? = null,
 )

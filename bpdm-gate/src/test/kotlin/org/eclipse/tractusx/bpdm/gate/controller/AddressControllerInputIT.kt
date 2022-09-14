@@ -26,13 +26,13 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension
 import org.assertj.core.api.Assertions.assertThat
 import org.eclipse.tractusx.bpdm.common.dto.cdq.*
 import org.eclipse.tractusx.bpdm.gate.config.CdqConfigProperties
-import org.eclipse.tractusx.bpdm.gate.util.CdqValues
-import org.eclipse.tractusx.bpdm.gate.util.CommonValues
-import org.eclipse.tractusx.bpdm.gate.util.EndpointValues.CATENA_INPUT_ADDRESSES_PATH
+import org.eclipse.tractusx.bpdm.gate.dto.AddressGateInput
+import org.eclipse.tractusx.bpdm.gate.dto.request.PaginationStartAfterRequest
+import org.eclipse.tractusx.bpdm.gate.dto.response.PageStartAfterResponse
+import org.eclipse.tractusx.bpdm.gate.util.*
 import org.eclipse.tractusx.bpdm.gate.util.EndpointValues.CDQ_MOCK_BUSINESS_PARTNER_PATH
 import org.eclipse.tractusx.bpdm.gate.util.EndpointValues.CDQ_MOCK_RELATIONS_PATH
-import org.eclipse.tractusx.bpdm.gate.util.RequestValues
-import org.eclipse.tractusx.bpdm.gate.util.deserializeMatchedRequests
+import org.eclipse.tractusx.bpdm.gate.util.EndpointValues.GATE_API_INPUT_ADDRESSES_PATH
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import org.springframework.beans.factory.annotation.Autowired
@@ -42,17 +42,18 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.reactive.server.WebTestClient
+import org.springframework.test.web.reactive.server.returnResult
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 internal class AddressControllerInputIT @Autowired constructor(
-    val webTestClient: WebTestClient,
-    val objectMapper: ObjectMapper,
-    val cdqConfigProperties: CdqConfigProperties
+    private val webTestClient: WebTestClient,
+    private val objectMapper: ObjectMapper,
+    private val cdqConfigProperties: CdqConfigProperties
 ) {
     companion object {
         @RegisterExtension
-        val wireMockServer: WireMockExtension = WireMockExtension.newInstance()
+        private val wireMockServer: WireMockExtension = WireMockExtension.newInstance()
             .options(WireMockConfiguration.wireMockConfig().dynamicPort())
             .build()
 
@@ -61,6 +62,286 @@ internal class AddressControllerInputIT @Autowired constructor(
         fun properties(registry: DynamicPropertyRegistry) {
             registry.add("bpdm.cdq.host") { wireMockServer.baseUrl() }
         }
+    }
+
+    /**
+     * Given address exists in cdq
+     * When getting address by external id
+     * Then address mapped to the catena data model should be returned
+     */
+    @Test
+    fun `get address by external id`() {
+        val expectedAddress = RequestValues.addressGateInput1
+
+        wireMockServer.stubFor(
+            post(urlPathMatching(EndpointValues.CDQ_MOCK_FETCH_BUSINESS_PARTNER_PATH))
+                .willReturn(
+                    aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            objectMapper.writeValueAsString(
+                                FetchResponse(
+                                    businessPartner = CdqValues.addressBusinessPartnerWithRelations1,
+                                    status = FetchResponse.Status.OK
+                                )
+                            )
+                        )
+                )
+        )
+
+        val address = webTestClient.get().uri(GATE_API_INPUT_ADDRESSES_PATH + "/${CdqValues.addressBusinessPartnerWithRelations1.externalId}")
+            .exchange()
+            .expectStatus()
+            .isOk
+            .expectBody(AddressGateInput::class.java)
+            .returnResult()
+            .responseBody
+
+        assertThat(address).usingRecursiveComparison().isEqualTo(expectedAddress)
+    }
+
+    /**
+     * Given address does not exist in cdq
+     * When getting address by external id
+     * Then "not found" response is sent
+     */
+    @Test
+    fun `get address by external id, not found`() {
+        wireMockServer.stubFor(
+            post(urlPathMatching(EndpointValues.CDQ_MOCK_FETCH_BUSINESS_PARTNER_PATH))
+                .willReturn(
+                    aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            objectMapper.writeValueAsString(
+                                FetchResponse(
+                                    businessPartner = null,
+                                    status = FetchResponse.Status.NOT_FOUND
+                                )
+                            )
+                        )
+                )
+        )
+
+        webTestClient.get().uri("${GATE_API_INPUT_ADDRESSES_PATH}/nonexistent-externalid123")
+            .exchange()
+            .expectStatus()
+            .isNotFound
+    }
+
+    /**
+     * When cdq api responds with an error status code while fetching address by external id
+     * Then an internal server error response should be sent
+     */
+    @Test
+    fun `get address by external id, cdq error`() {
+        wireMockServer.stubFor(
+            post(urlPathMatching(EndpointValues.CDQ_MOCK_FETCH_BUSINESS_PARTNER_PATH))
+                .willReturn(badRequest())
+        )
+
+        webTestClient.get().uri(GATE_API_INPUT_ADDRESSES_PATH + "/${CdqValues.legalEntity1.externalId}")
+            .exchange()
+            .expectStatus()
+            .is5xxServerError
+    }
+
+    /**
+     * Given address business partner without address data in CDQ
+     * When query by its external ID
+     * Then server error is returned
+     */
+    @Test
+    fun `get address for which cdq data is invalid, expect error`() {
+
+        val invalidPartner = CdqValues.addressBusinessPartnerWithRelations1.copy(addresses = emptyList())
+
+        wireMockServer.stubFor(
+            post(urlPathMatching(EndpointValues.CDQ_MOCK_FETCH_BUSINESS_PARTNER_PATH))
+                .willReturn(
+                    aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            objectMapper.writeValueAsString(
+                                FetchResponse(
+                                    businessPartner = invalidPartner,
+                                    status = FetchResponse.Status.OK
+                                )
+                            )
+                        )
+                )
+        )
+
+        webTestClient.get().uri(GATE_API_INPUT_ADDRESSES_PATH + "/${CdqValues.addressBusinessPartnerWithRelations1.externalId}")
+            .exchange()
+            .expectStatus()
+            .is5xxServerError
+    }
+
+    /**
+     * Given addresses exists in cdq
+     * When getting addresses page
+     * Then addresses page mapped to the catena data model should be returned
+     */
+    @Test
+    fun `get addresses`() {
+        val addressesCdq = listOf(
+            CdqValues.addressBusinessPartnerWithRelations1,
+            CdqValues.addressBusinessPartnerWithRelations2
+        )
+
+        val expectedAddresses = listOf(
+            RequestValues.addressGateInput1,
+            RequestValues.addressGateInput2
+        )
+
+        val limit = 2
+        val startAfter = "Aaa111"
+        val nextStartAfter = "Aaa222"
+        val total = 10
+        val invalidEntries = 0
+
+        wireMockServer.stubFor(
+            get(urlPathMatching(CDQ_MOCK_BUSINESS_PARTNER_PATH))
+                .willReturn(
+                    aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            objectMapper.writeValueAsString(
+                                PagedResponseCdq(
+                                    limit = limit,
+                                    startAfter = startAfter,
+                                    nextStartAfter = nextStartAfter,
+                                    total = total,
+                                    values = addressesCdq
+                                )
+                            )
+                        )
+                )
+        )
+
+        val pageResponse = webTestClient.get()
+            .uri { builder ->
+                builder.path(GATE_API_INPUT_ADDRESSES_PATH)
+                    .queryParam(PaginationStartAfterRequest::startAfter.name, startAfter)
+                    .queryParam(PaginationStartAfterRequest::limit.name, limit)
+                    .build()
+            }
+            .exchange()
+            .expectStatus()
+            .isOk
+            .returnResult<PageStartAfterResponse<AddressGateInput>>()
+            .responseBody
+            .blockFirst()!!
+
+        assertThat(pageResponse).isEqualTo(
+            PageStartAfterResponse(
+                total = total,
+                nextStartAfter = nextStartAfter,
+                content = expectedAddresses,
+                invalidEntries = invalidEntries
+            )
+        )
+    }
+
+    /**
+     * Given invalid addresses in CDQ
+     * When getting addresses page
+     * Then only valid addresses on page returned
+     */
+    @Test
+    fun `filter invalid addresses`() {
+        val addressesCdq = listOf(
+            CdqValues.addressBusinessPartnerWithRelations1,
+            CdqValues.addressBusinessPartnerWithRelations2,
+            CdqValues.addressBusinessPartnerWithRelations1.copy(addresses = emptyList()), // address without address data
+        )
+
+        val expectedAddresses = listOf(
+            RequestValues.addressGateInput1,
+            RequestValues.addressGateInput2
+        )
+
+        val limit = 3
+        val startAfter = "Aaa111"
+        val nextStartAfter = "Aaa222"
+        val total = 10
+        val invalidEntries = 1
+
+        wireMockServer.stubFor(
+            get(urlPathMatching(CDQ_MOCK_BUSINESS_PARTNER_PATH))
+                .willReturn(
+                    aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            objectMapper.writeValueAsString(
+                                PagedResponseCdq(
+                                    limit = limit,
+                                    startAfter = startAfter,
+                                    nextStartAfter = nextStartAfter,
+                                    total = total,
+                                    values = addressesCdq
+                                )
+                            )
+                        )
+                )
+        )
+
+        val pageResponse = webTestClient.get()
+            .uri { builder ->
+                builder.path(GATE_API_INPUT_ADDRESSES_PATH)
+                    .queryParam(PaginationStartAfterRequest::startAfter.name, startAfter)
+                    .queryParam(PaginationStartAfterRequest::limit.name, limit)
+                    .build()
+            }
+            .exchange()
+            .expectStatus()
+            .isOk
+            .returnResult<PageStartAfterResponse<AddressGateInput>>()
+            .responseBody
+            .blockFirst()!!
+
+        assertThat(pageResponse).isEqualTo(
+            PageStartAfterResponse(
+                total = total,
+                nextStartAfter = nextStartAfter,
+                content = expectedAddresses,
+                invalidEntries = invalidEntries
+            )
+        )
+    }
+
+    /**
+     * When cdq api responds with an error status code while getting addresses
+     * Then an internal server error response should be sent
+     */
+    @Test
+    fun `get addresses, cdq error`() {
+        wireMockServer.stubFor(
+            get(urlPathMatching(CDQ_MOCK_BUSINESS_PARTNER_PATH))
+                .willReturn(badRequest())
+        )
+
+        webTestClient.get().uri(GATE_API_INPUT_ADDRESSES_PATH)
+            .exchange()
+            .expectStatus()
+            .is5xxServerError
+    }
+
+    /**
+     * When requesting too many addresses
+     * Then a bad request response should be sent
+     */
+    @Test
+    fun `get addresses, pagination limit exceeded`() {
+        webTestClient.get().uri { builder ->
+            builder.path(GATE_API_INPUT_ADDRESSES_PATH)
+                .queryParam(PaginationStartAfterRequest::limit.name, 999999)
+                .build()
+        }
+            .exchange()
+            .expectStatus()
+            .isBadRequest
     }
 
     /**
@@ -91,6 +372,29 @@ internal class AddressControllerInputIT @Autowired constructor(
         val expectedRelations = listOf(
             CdqValues.relationAddress1ToLegalEntity,
             CdqValues.relationAddress2ToSite
+        )
+
+        val expectedDeletedRelations = listOf(
+            DeleteRelationsRequestCdq.RelationToDeleteCdq(
+                startNode = DeleteRelationsRequestCdq.RelationNodeToDeleteCdq(
+                    dataSourceId = cdqConfigProperties.datasourceLegalEntity,
+                    externalId = CdqValues.addressBusinessPartnerWithRelations1.relations.first().startNode
+                ),
+                endNode = DeleteRelationsRequestCdq.RelationNodeToDeleteCdq(
+                    dataSourceId = cdqConfigProperties.datasourceAddress,
+                    externalId = CdqValues.addressBusinessPartnerWithRelations1.relations.first().endNode
+                ),
+            ),
+            DeleteRelationsRequestCdq.RelationToDeleteCdq(
+                startNode = DeleteRelationsRequestCdq.RelationNodeToDeleteCdq(
+                    dataSourceId = cdqConfigProperties.datasourceSite,
+                    externalId = CdqValues.addressBusinessPartnerWithRelations2.relations.first().startNode
+                ),
+                endNode = DeleteRelationsRequestCdq.RelationNodeToDeleteCdq(
+                    dataSourceId = cdqConfigProperties.datasourceAddress,
+                    externalId = CdqValues.addressBusinessPartnerWithRelations2.relations.first().endNode
+                ),
+            ),
         )
 
         // mock "get parent legal entities"
@@ -148,6 +452,42 @@ internal class AddressControllerInputIT @Autowired constructor(
                         )
                 )
         )
+        // mock "get addresses with relations"
+        // this simulates the case that the address already had some relations
+        wireMockServer.stubFor(
+            get(urlPathMatching(CDQ_MOCK_BUSINESS_PARTNER_PATH))
+                .withQueryParam("externalId", equalTo(addresses.map { it.externalId }.joinToString(",")))
+                .withQueryParam("dataSource", equalTo(cdqConfigProperties.datasourceAddress))
+                .withQueryParam("featuresOn", containing("FETCH_RELATIONS"))
+                .willReturn(
+                    aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            objectMapper.writeValueAsString(
+                                PagedResponseCdq(
+                                    limit = 50,
+                                    total = 2,
+                                    values = listOf(
+                                        CdqValues.addressBusinessPartnerWithRelations1,
+                                        CdqValues.addressBusinessPartnerWithRelations2
+                                    )
+                                )
+                            )
+                        )
+                )
+        )
+        val stubMappingDeleteRelations = wireMockServer.stubFor(
+            post(urlPathMatching(EndpointValues.CDQ_MOCK_DELETE_RELATIONS_PATH))
+                .willReturn(
+                    aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            objectMapper.writeValueAsString(
+                                DeleteRelationsResponseCdq(2)
+                            )
+                        )
+                )
+        )
         val stubMappingUpsertRelations = wireMockServer.stubFor(
             put(urlPathMatching(CDQ_MOCK_RELATIONS_PATH))
                 .willReturn(
@@ -167,7 +507,7 @@ internal class AddressControllerInputIT @Autowired constructor(
                 )
         )
 
-        webTestClient.put().uri(CATENA_INPUT_ADDRESSES_PATH)
+        webTestClient.put().uri(GATE_API_INPUT_ADDRESSES_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(objectMapper.writeValueAsString(addresses))
             .exchange()
@@ -176,6 +516,10 @@ internal class AddressControllerInputIT @Autowired constructor(
 
         val upsertAddressesRequest = wireMockServer.deserializeMatchedRequests<UpsertRequest>(stubMappingUpsertAddresses, objectMapper).single()
         assertThat(upsertAddressesRequest.businessPartners).containsExactlyInAnyOrderElementsOf(expectedAddresses)
+
+        // check that "delete relations" was called in cdq as expected
+        val deleteRelationsRequestCdq = wireMockServer.deserializeMatchedRequests<DeleteRelationsRequestCdq>(stubMappingDeleteRelations, objectMapper).single()
+        assertThat(deleteRelationsRequestCdq.relations).containsExactlyInAnyOrderElementsOf(expectedDeletedRelations)
 
         val upsertRelationsRequest = wireMockServer.deserializeMatchedRequests<UpsertRelationsRequestCdq>(stubMappingUpsertRelations, objectMapper).single()
         assertThat(upsertRelationsRequest.relations).containsExactlyInAnyOrderElementsOf(expectedRelations)
@@ -211,7 +555,7 @@ internal class AddressControllerInputIT @Autowired constructor(
                 )
         )
 
-        webTestClient.put().uri(CATENA_INPUT_ADDRESSES_PATH)
+        webTestClient.put().uri(GATE_API_INPUT_ADDRESSES_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(objectMapper.writeValueAsString(addresses))
             .exchange()
@@ -249,7 +593,7 @@ internal class AddressControllerInputIT @Autowired constructor(
                 )
         )
 
-        webTestClient.put().uri(CATENA_INPUT_ADDRESSES_PATH)
+        webTestClient.put().uri(GATE_API_INPUT_ADDRESSES_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(objectMapper.writeValueAsString(addresses))
             .exchange()
@@ -270,7 +614,7 @@ internal class AddressControllerInputIT @Autowired constructor(
             )
         )
 
-        webTestClient.put().uri(CATENA_INPUT_ADDRESSES_PATH)
+        webTestClient.put().uri(GATE_API_INPUT_ADDRESSES_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(objectMapper.writeValueAsString(addresses))
             .exchange()
@@ -291,7 +635,7 @@ internal class AddressControllerInputIT @Autowired constructor(
             )
         )
 
-        webTestClient.put().uri(CATENA_INPUT_ADDRESSES_PATH)
+        webTestClient.put().uri(GATE_API_INPUT_ADDRESSES_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(objectMapper.writeValueAsString(addresses))
             .exchange()

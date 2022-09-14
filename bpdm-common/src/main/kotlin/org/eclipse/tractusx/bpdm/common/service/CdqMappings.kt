@@ -30,6 +30,12 @@ import org.eclipse.tractusx.bpdm.common.model.HasDefaultValue
 
 object CdqMappings {
 
+    const val BPN_TECHNICAL_KEY = "CX_BPN"
+
+    fun findBpn(identifiers: Collection<IdentifierCdq>): String? {
+        return identifiers.find { it.type?.technicalKey == BPN_TECHNICAL_KEY }?.value
+    }
+
     private fun toReference(type: TypeKeyNameUrlCdq?): String {
         return type!!.technicalKey!!
     }
@@ -72,10 +78,9 @@ object CdqMappings {
         return country?.shortName ?: CountryCode.UNDEFINED
     }
 
-    fun BusinessPartnerCdq.toDto(): LegalEntityDto {
+    fun BusinessPartnerCdq.toLegalEntityDto(): LegalEntityDto {
         return LegalEntityDto(
-            bpn = identifiers.find { it.type?.technicalKey == "BPN" }?.value,
-            identifiers = identifiers.filter { it.type?.technicalKey != "BPN" }.map { toDto(it) },
+            identifiers = identifiers.filter { it.type?.technicalKey != BPN_TECHNICAL_KEY }.map { toDto(it) },
             names = names.map { toDto(it) },
             legalForm = toOptionalReference(legalForm),
             status = if (status != null) toDto(status) else null,
@@ -83,6 +88,13 @@ object CdqMappings {
             types = types.map { toTypeOrDefault<BusinessPartnerType>(it) }.toSet(),
             bankAccounts = bankAccounts.map { toDto(it) },
             legalAddress = toDto(addresses.single())
+        )
+    }
+
+    fun BusinessPartnerCdq.toSiteDto(): SiteDto {
+        return SiteDto(
+            name = names.single().value,
+            mainAddress = toDto(addresses.single())
         )
     }
 
@@ -203,5 +215,16 @@ object CdqMappings {
         return if (geoCoords.latitude != null && geoCoords.longitude != null) GeoCoordinateDto(geoCoords.longitude, geoCoords.latitude, null) else null
     }
 
-
+    fun toRelationToDelete(relation: RelationCdq): DeleteRelationsRequestCdq.RelationToDeleteCdq {
+        return DeleteRelationsRequestCdq.RelationToDeleteCdq(
+            startNode = DeleteRelationsRequestCdq.RelationNodeToDeleteCdq(
+                dataSourceId = relation.startNodeDataSource,
+                externalId = relation.startNode
+            ),
+            endNode = DeleteRelationsRequestCdq.RelationNodeToDeleteCdq(
+                dataSourceId = relation.endNodeDataSource,
+                externalId = relation.endNode
+            )
+        )
+    }
 }

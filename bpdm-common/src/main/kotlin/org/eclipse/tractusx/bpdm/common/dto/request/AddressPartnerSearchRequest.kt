@@ -17,18 +17,16 @@
  * SPDX-License-Identifier: Apache-2.0
  ******************************************************************************/
 
-package org.eclipse.tractusx.bpdm.pool.dto.response
+package org.eclipse.tractusx.bpdm.common.dto.request
 
-import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Schema
-import org.eclipse.tractusx.bpdm.common.dto.response.AddressBpnResponse
 
-@Schema(name = "Site Response", description = "Site of a business partner")
-data class SiteResponse(
-    @Schema(description = "Business Partner Number, main identifier value for sites")
-    val bpn: String,
-    @Schema(description = "Site name")
-    val name: String,
-    @ArraySchema(arraySchema = Schema(description = "Addresses of the site"))
-    val addresses: Collection<AddressBpnResponse> = emptyList(),
+@Schema(name = "Address Partner Search Request", description = "Request for searching business partners of type address by parent BPNs")
+data class AddressPartnerSearchRequest(
+    @Schema(description = "Filter by Business Partner Numbers of legal entities which are at that address")
+    val legalEntities: Collection<String> = emptyList(),
+    @Schema(description = "Filter by Business Partner Numbers of sites which are at that address")
+    val sites: Collection<String> = emptyList(),
+    @Schema(description = "Filter by BPNA of addresses")
+    val addresses: Collection<String> = emptyList()
 )

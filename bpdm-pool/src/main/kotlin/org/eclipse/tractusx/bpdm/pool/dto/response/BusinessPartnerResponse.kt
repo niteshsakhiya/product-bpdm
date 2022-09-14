@@ -19,37 +19,46 @@
 
 package org.eclipse.tractusx.bpdm.pool.dto.response
 
-
-import io.swagger.v3.oas.annotations.media.ArraySchema
+import com.fasterxml.jackson.annotation.JsonUnwrapped
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer
 import io.swagger.v3.oas.annotations.media.Schema
-import org.eclipse.tractusx.bpdm.common.dto.response.*
-import org.eclipse.tractusx.bpdm.common.dto.response.type.TypeKeyNameDto
-import org.eclipse.tractusx.bpdm.common.dto.response.type.TypeKeyNameUrlDto
-import org.eclipse.tractusx.bpdm.common.model.BusinessPartnerType
+import org.eclipse.tractusx.bpdm.common.dto.response.AddressPartnerResponse
+import org.eclipse.tractusx.bpdm.common.dto.response.LegalEntityResponse
+import org.eclipse.tractusx.bpdm.common.dto.response.SitePartnerResponse
 import java.time.Instant
 
-@Schema(name = "Business Partner Response", description = "Business partner record")
-data class BusinessPartnerResponse (
+@JsonDeserialize(using = BusinessPartnerResponse.CustomDeserializer::class)
+@Schema(name = "Business Partner Response", description = "Business Partner of type legal entity in deprecated response format", deprecated = true)
+data class BusinessPartnerResponse(
+    val uuid: String,
     @Schema(description = "Business Partner Number, main identifier value for business partners")
     val bpn: String,
-    @ArraySchema(arraySchema = Schema(description = "All identifiers of the business partner, including BPN information"))
-    val identifiers: Collection<IdentifierResponse> = emptyList(),
-    @ArraySchema(arraySchema = Schema(description = "Names the partner goes by"))
-    val names: Collection<NameResponse> = emptyList(),
-    @Schema(description = "Legal form of the business partner")
-    val legalForm: LegalFormResponse? = null,
-    @Schema(description = "Current business status")
-    val status: BusinessStatusResponse? = null,
-    @ArraySchema(arraySchema = Schema(description = "Profile classifications"))
-    val profileClassifications: Collection<ClassificationResponse> = emptyList(),
-    @ArraySchema(arraySchema = Schema(description = "The partner types"))
-    val types: Collection<TypeKeyNameUrlDto<BusinessPartnerType>> = emptyList(),
-    @ArraySchema(arraySchema = Schema(description = "Bank accounts of this partner"))
-    val bankAccounts: Collection<BankAccountResponse> = emptyList(),
-    @ArraySchema(arraySchema = Schema(description = "Roles the partner takes in the Catena network"))
-    val roles: Collection<TypeKeyNameDto<String>> = emptyList(),
-    @ArraySchema(arraySchema = Schema(description = "Relations to other business partners"))
-    val relations: Collection<RelationResponse> = emptyList(),
+    @JsonUnwrapped
+    val properties: LegalEntityResponse,
+    val addresses: Collection<AddressPartnerResponse>,
+    val sites: Collection<SitePartnerResponse>,
     @Schema(description = "The timestamp the business partner data was last indicated to be still current")
     val currentness: Instant
-)
+) {
+    class CustomDeserializer(vc: Class<BusinessPartnerResponse>?) : StdDeserializer<BusinessPartnerResponse>(vc) {
+        override fun deserialize(parser: JsonParser, ctxt: DeserializationContext): BusinessPartnerResponse {
+            val node = parser.codec.readTree<JsonNode>(parser)
+
+            val addresses = node.get(BusinessPartnerResponse::addresses.name).map { ctxt.readTreeAsValue(it, AddressPartnerResponse::class.java) }
+            val sites = node.get(BusinessPartnerResponse::sites.name).map { ctxt.readTreeAsValue(it, SitePartnerResponse::class.java) }
+
+            return BusinessPartnerResponse(
+                node.get(BusinessPartnerResponse::uuid.name).textValue(),
+                node.get(BusinessPartnerResponse::bpn.name).textValue(),
+                ctxt.readTreeAsValue(node, LegalEntityResponse::class.java),
+                addresses,
+                sites,
+                ctxt.readTreeAsValue(node.get(BusinessPartnerResponse::currentness.name), Instant::class.java),
+            )
+        }
+    }
+}

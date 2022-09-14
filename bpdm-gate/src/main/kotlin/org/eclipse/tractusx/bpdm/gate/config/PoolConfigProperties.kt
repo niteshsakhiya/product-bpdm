@@ -17,13 +17,13 @@
  * SPDX-License-Identifier: Apache-2.0
  ******************************************************************************/
 
-package org.eclipse.tractusx.bpdm.pool.dto.response
+package org.eclipse.tractusx.bpdm.gate.config
 
-import io.swagger.v3.oas.annotations.media.Schema
+import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.boot.context.properties.ConstructorBinding
 
-@Schema(name = "Site With Reference Response", description = "Site with bpn reference")
-data class SiteWithReferenceResponse(
-    val site: SiteResponse,
-    @Schema(description = "Business Partner Number of the related legal entity")
-    val bpnLegalEntity: String,
+@ConfigurationProperties(prefix = "bpdm.pool")
+@ConstructorBinding
+data class PoolConfigProperties(
+    val baseUrl: String = "http://localhost:8080/api/catena",
 )

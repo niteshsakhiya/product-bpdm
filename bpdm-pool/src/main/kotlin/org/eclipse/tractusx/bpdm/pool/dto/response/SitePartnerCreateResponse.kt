@@ -17,12 +17,21 @@
  * SPDX-License-Identifier: Apache-2.0
  ******************************************************************************/
 
-package org.eclipse.tractusx.bpdm.pool.dto
+package org.eclipse.tractusx.bpdm.pool.dto.response
 
-import org.eclipse.tractusx.bpdm.pool.dto.request.BusinessPartnerRequest
-import org.eclipse.tractusx.bpdm.pool.entity.BusinessPartner
+import io.swagger.v3.oas.annotations.media.Schema
+import org.eclipse.tractusx.bpdm.common.dto.response.AddressResponse
 
-data class BusinessPartnerUpdateDto(
-    val businessPartner: BusinessPartner,
-    val updateRequest: BusinessPartnerRequest
-)
+@Schema(name = "Site Partner Create Response", description = "Created business partner record of type site")
+data class SitePartnerCreateResponse(
+    @Schema(description = "Business Partner Number, main identifier value for sites")
+    val bpn: String,
+    @Schema(description = "Site name")
+    val name: String,
+    @Schema(description = "Main address of this site")
+    val mainAddress: AddressResponse,
+    @Schema(description = "User defined index to conveniently match this entry to the corresponding entry from the request")
+    val index: String?
+) {
+
+}

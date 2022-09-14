@@ -17,9 +17,13 @@
  * SPDX-License-Identifier: Apache-2.0
  ******************************************************************************/
 
-package org.eclipse.tractusx.bpdm.pool.dto.response
+package org.eclipse.tractusx.bpdm.common.dto.request
 
-data class BusinessPartnerSearchResponse(
-    val score: Float,
-    val businessPartner: BusinessPartnerResponse
+import io.swagger.v3.oas.annotations.media.Schema
+
+data class SiteSearchRequest(
+    @Schema(description = "Filter sites that should belong to legal entities (specified by BPNL)")
+    val legalEntities: Collection<String> = emptyList(),
+    @Schema(description = "Filter sites by BPNS of sites")
+    val sites: Collection<String> = emptyList(),
 )

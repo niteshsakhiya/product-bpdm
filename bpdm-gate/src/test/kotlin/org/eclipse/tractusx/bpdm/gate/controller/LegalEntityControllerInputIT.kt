@@ -34,9 +34,9 @@ import org.eclipse.tractusx.bpdm.gate.dto.LegalEntityGateInput
 import org.eclipse.tractusx.bpdm.gate.dto.request.PaginationStartAfterRequest
 import org.eclipse.tractusx.bpdm.gate.dto.response.PageStartAfterResponse
 import org.eclipse.tractusx.bpdm.gate.util.CdqValues
-import org.eclipse.tractusx.bpdm.gate.util.EndpointValues.CATENA_INPUT_LEGAL_ENTITIES_PATH
 import org.eclipse.tractusx.bpdm.gate.util.EndpointValues.CDQ_MOCK_BUSINESS_PARTNER_PATH
 import org.eclipse.tractusx.bpdm.gate.util.EndpointValues.CDQ_MOCK_FETCH_BUSINESS_PARTNER_PATH
+import org.eclipse.tractusx.bpdm.gate.util.EndpointValues.GATE_API_INPUT_LEGAL_ENTITIES_PATH
 import org.eclipse.tractusx.bpdm.gate.util.RequestValues
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
@@ -52,12 +52,12 @@ import org.springframework.test.web.reactive.server.returnResult
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = ["bpdm.api.upsert-limit=2"])
 @ActiveProfiles("test")
 internal class LegalEntityControllerInputIT @Autowired constructor(
-    val webTestClient: WebTestClient,
-    val objectMapper: ObjectMapper
+    private val webTestClient: WebTestClient,
+    private val objectMapper: ObjectMapper
 ) {
     companion object {
         @RegisterExtension
-        val wireMockServer: WireMockExtension = WireMockExtension.newInstance()
+        private val wireMockServer: WireMockExtension = WireMockExtension.newInstance()
             .options(WireMockConfiguration.wireMockConfig().dynamicPort())
             .build()
 
@@ -102,7 +102,7 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
                 )
         )
 
-        webTestClient.put().uri(CATENA_INPUT_LEGAL_ENTITIES_PATH)
+        webTestClient.put().uri(GATE_API_INPUT_LEGAL_ENTITIES_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(objectMapper.writeValueAsString(legalEntities))
             .exchange()
@@ -125,7 +125,7 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
                 .apply { remove(LegalEntityGateInput::externalId.name) }
         )
 
-        webTestClient.put().uri(CATENA_INPUT_LEGAL_ENTITIES_PATH)
+        webTestClient.put().uri(GATE_API_INPUT_LEGAL_ENTITIES_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(legalEntitiesJson.toString())
             .exchange()
@@ -141,11 +141,11 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
     fun `upsert legal entities, legal entity limit exceeded`() {
         val legalEntities = listOf(
             RequestValues.legalEntityGateInput1,
-            LegalEntityGateInput("external-1", RequestValues.legalEntityGateInput1.legalEntity.copy()),
-            LegalEntityGateInput("external-2", RequestValues.legalEntityGateInput1.legalEntity.copy())
+            RequestValues.legalEntityGateInput1.copy(externalId = "external-1"),
+            RequestValues.legalEntityGateInput1.copy(externalId = "external-2")
         )
 
-        webTestClient.put().uri(CATENA_INPUT_LEGAL_ENTITIES_PATH)
+        webTestClient.put().uri(GATE_API_INPUT_LEGAL_ENTITIES_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(objectMapper.writeValueAsString(legalEntities))
             .exchange()
@@ -161,10 +161,10 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
     fun `upsert legal entities, duplicate external id`() {
         val legalEntities = listOf(
             RequestValues.legalEntityGateInput1,
-            LegalEntityGateInput(RequestValues.legalEntityGateInput1.externalId, RequestValues.legalEntityGateInput1.legalEntity.copy())
+            RequestValues.legalEntityGateInput1.copy()
         )
 
-        webTestClient.put().uri(CATENA_INPUT_LEGAL_ENTITIES_PATH)
+        webTestClient.put().uri(GATE_API_INPUT_LEGAL_ENTITIES_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(objectMapper.writeValueAsString(legalEntities))
             .exchange()
@@ -188,7 +188,7 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
                 .willReturn(badRequest())
         )
 
-        webTestClient.put().uri(CATENA_INPUT_LEGAL_ENTITIES_PATH)
+        webTestClient.put().uri(GATE_API_INPUT_LEGAL_ENTITIES_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(objectMapper.writeValueAsString(legalEntities))
             .exchange()
@@ -221,7 +221,7 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
                 )
         )
 
-        val legalEntity = webTestClient.get().uri(CATENA_INPUT_LEGAL_ENTITIES_PATH + "/${CdqValues.legalEntity1.externalId}")
+        val legalEntity = webTestClient.get().uri(GATE_API_INPUT_LEGAL_ENTITIES_PATH + "/${CdqValues.legalEntity1.externalId}")
             .exchange()
             .expectStatus()
             .isOk
@@ -255,7 +255,7 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
                 )
         )
 
-        webTestClient.get().uri("$CATENA_INPUT_LEGAL_ENTITIES_PATH/nonexistent-externalid123")
+        webTestClient.get().uri("$GATE_API_INPUT_LEGAL_ENTITIES_PATH/nonexistent-externalid123")
             .exchange()
             .expectStatus()
             .isNotFound
@@ -272,7 +272,7 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
                 .willReturn(badRequest())
         )
 
-        webTestClient.get().uri(CATENA_INPUT_LEGAL_ENTITIES_PATH + "/${CdqValues.legalEntity1.externalId}")
+        webTestClient.get().uri(GATE_API_INPUT_LEGAL_ENTITIES_PATH + "/${CdqValues.legalEntity1.externalId}")
             .exchange()
             .expectStatus()
             .is5xxServerError
@@ -304,7 +304,7 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
                 )
         )
 
-        webTestClient.get().uri(CATENA_INPUT_LEGAL_ENTITIES_PATH + "/${CdqValues.legalEntity1.externalId}")
+        webTestClient.get().uri(GATE_API_INPUT_LEGAL_ENTITIES_PATH + "/${CdqValues.legalEntity1.externalId}")
             .exchange()
             .expectStatus()
             .is5xxServerError
@@ -355,7 +355,7 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
 
         val pageResponse = webTestClient.get()
             .uri { builder ->
-                builder.path(CATENA_INPUT_LEGAL_ENTITIES_PATH)
+                builder.path(GATE_API_INPUT_LEGAL_ENTITIES_PATH)
                     .queryParam(PaginationStartAfterRequest::startAfter.name, startAfter)
                     .queryParam(PaginationStartAfterRequest::limit.name, limit)
                     .build()
@@ -422,7 +422,7 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
 
         val pageResponse = webTestClient.get()
             .uri { builder ->
-                builder.path(CATENA_INPUT_LEGAL_ENTITIES_PATH)
+                builder.path(GATE_API_INPUT_LEGAL_ENTITIES_PATH)
                     .queryParam(PaginationStartAfterRequest::startAfter.name, startAfter)
                     .queryParam(PaginationStartAfterRequest::limit.name, limit)
                     .build()
@@ -455,20 +455,20 @@ internal class LegalEntityControllerInputIT @Autowired constructor(
                 .willReturn(badRequest())
         )
 
-        webTestClient.get().uri(CATENA_INPUT_LEGAL_ENTITIES_PATH)
+        webTestClient.get().uri(GATE_API_INPUT_LEGAL_ENTITIES_PATH)
             .exchange()
             .expectStatus()
             .is5xxServerError
     }
 
     /**
-     * When cdq api responds with an error status code while getting legal entities
-     * Then an internal server error response should be sent
+     * When requesting too many legal entities
+     * Then a bad request response should be sent
      */
     @Test
     fun `get legal entities, pagination limit exceeded`() {
         webTestClient.get().uri { builder ->
-            builder.path(CATENA_INPUT_LEGAL_ENTITIES_PATH)
+            builder.path(GATE_API_INPUT_LEGAL_ENTITIES_PATH)
                 .queryParam(PaginationStartAfterRequest::limit.name, 999999)
                 .build()
         }

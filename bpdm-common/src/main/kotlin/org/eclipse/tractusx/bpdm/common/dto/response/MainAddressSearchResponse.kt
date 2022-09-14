@@ -17,21 +17,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ******************************************************************************/
 
-package org.eclipse.tractusx.bpdm.pool.dto.request
+package org.eclipse.tractusx.bpdm.common.dto.response
 
-import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
-import org.springframework.boot.context.properties.ConstructorBinding
 
-@Schema(name = "Business Partner Properties Search Request", description = "Contains keywords used for searching in business partner properties")
-data class BusinessPartnerPropertiesSearchRequest @ConstructorBinding constructor(
-    @field:Parameter(description = "Filter business partners by name")
-    val name: String?,
-    @field:Parameter(description = "Filter business partners by legal form name")
-    val legalForm: String?,
-    @field:Parameter(description = "Filter business partners by status official denotation")
-    val status: String?,
-    @field:Parameter(description = "Filter business partners by classification denotation")
-    val classification: String?,
+@Schema(name = "Main Address Search Response", description = "Main address record with parent BPN")
+data class MainAddressSearchResponse(
+    @Schema(description = "BPNS of the site this main address belongs to")
+    val site: String,
+    @Schema(description = "Adress properties")
+    val mainAddress: AddressResponse
 )
-

@@ -19,6 +19,7 @@
 
 package org.eclipse.tractusx.bpdm.gate.config
 
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpHeaders
@@ -36,7 +37,8 @@ class CdqConfig(
     }
 
     @Bean
-    fun adapterClient(): WebClient {
+    @Qualifier("cdqClient")
+    fun webClientCdq(): WebClient {
         return WebClient.builder()
             .exchangeStrategies(ExchangeStrategies.builder()
                 .codecs { codecs: ClientCodecConfigurer -> codecs.defaultCodecs().maxInMemorySize(memorySize) }
