@@ -1,0 +1,54 @@
+
+image:
+  registry: ftcpro.azurecr.io
+  repository: bpdm/gate
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+#Spring profiles under which the application should run
+springProfiles:
+  - dev
+
+autoscaling:
+  enabled: false
+
+ingress:
+  enabled: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+  hosts:
+    - host: partners-gate.dev.demo.ftcpro.co
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: bpdm-gate-tls-secret
+      hosts:
+        - partners-gate.dev.demo.ftcpro.co
+
+# Following Catena-X Helm Best Practices @url: https://catenax-ng.github.io/docs/kubernetes-basics/helm
+# @url: https://cloud.google.com/blog/products/containers-kubernetes/kubernetes-best-practices-resource-requests-and-limits
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 50m
+    memory: 100Mi
+
+applicationSecret:
+  enabled: true
+  cdq: <path:bpdm/data/dev/gate/cdq#api-key>
+
+applicationConfig: |
+  # oauth2 client configuration
+  spring.security.oauth2.client.registration.gate-client.client-id=sa-cl16-cx-1
+  spring.security.oauth2.client.registration.gate-client.client-secret=<path:bpdm/data/dev/gate/service-account#client-secret>
+  spring.security.oauth2.client.registration.gate-client.authorization-grant-type=client_credentials
+  spring.security.oauth2.client.registration.gate-client.provider=catena-keycloak-provider
+  spring.security.oauth2.client.provider.catena-keycloak-provider.issuer-uri=https://centralidp.dev.demo.catena-x.net/auth/realms/CX-Central
+  # Connection to pool
+  bpdm.pool.base-url=http://pool-bpdm:8080/api/catena

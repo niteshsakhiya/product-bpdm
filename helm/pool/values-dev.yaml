@@ -1,0 +1,66 @@
+
+image:
+  registry: ftcpro.azurecr.io
+  repository: bpdm/pool
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+#Spring profiles under which the application should run
+springProfiles:
+  - dev
+
+autoscaling:
+  enabled: false
+
+ingress:
+  enabled: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+  hosts:
+    - host: partners-pool.dev.demo.ftcpro.co
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: bpdm-pool-tls-secret
+      hosts:
+        - partners-pool.dev.demo.ftcpro.co
+
+# Following Catena-X Helm Best Practices @url: https://catenax-ng.github.io/docs/kubernetes-basics/helm
+# @url: https://cloud.google.com/blog/products/containers-kubernetes/kubernetes-best-practices-resource-requests-and-limits
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 50m
+    memory: 100Mi
+
+applicationSecret:
+  enabled: true
+  keycloak: <path:bpdm/data/dev/pool/keycloak#credentials-secret>
+  cdq: <path:bpdm/data/dev/pool/cdq#api-key>
+
+applicationConfig: |
+  # every hour at minute 30
+  bpdm.opensearch.export-scheduler-cron-expr=0 30 * * * *
+  # every hour at minute 0
+  bpdm.cdq.import-scheduler-cron-expr=0 0 * * * *
+
+opensearch:
+  host: opensearch-cluster-master.opensearch
+  enabled: false
+
+
+postgres:
+  enabled: false
+  auth:
+    database: bpdm
+    postgresPassword: <path:bpdm/data/dev/pool/postgresql#postgres-password>
+    username: bpdm
+    password: <path:bpdm/data/dev/pool/postgresql#password>
+    host: ftcpro-postgresql-primary.postgres
+
